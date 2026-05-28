@@ -1,0 +1,54 @@
+{
+  "name": "inflowforge-api",
+  "version": "1.0.0",
+  "description": "Backend-first workflow automation REST API built with Fastify, PostgreSQL, Redis, BullMQ, and Docker.",
+  "main": "dist/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wbizmo/inflowforge-api.git"
+  },
+  "keywords": [
+    "workflow",
+    "automation",
+    "fastify",
+    "api",
+    "bullmq",
+    "redis",
+    "postgresql"
+  ],
+  "author": "Ashibuogwu Williams",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/wbizmo/inflowforge-api/issues"
+  },
+  "homepage": "https://github.com/wbizmo/inflowforge-api#readme",
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/helmet": "^13.0.2",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "bullmq": "^5.77.6",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.8.5",
+    "ioredis": "^5.11.0",
+    "pg": "^8.21.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@types/pg": "^8.20.0",
+    "eslint": "^10.4.0",
+    "prettier": "^3.8.3",
+    "prisma": "^7.8.0",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  }
+}
