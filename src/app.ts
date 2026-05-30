@@ -1,11 +1,50 @@
 import Fastify from "fastify";
+
+import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
+
+import swagger from "@fastify/swagger";
+import swaggerUI from "@fastify/swagger-ui";
+
 import { prisma } from "./plugins/prisma.js";
 import { redis } from "./plugins/redis.js";
 import { workflowQueue } from "./queues/workflow.queue.js";
 
-export function buildApp() {
+import { apiKeyAuth } from "./middleware/api-key-auth.js";
+
+import { workflowRoutes } from "./modules/workflows/workflow.routes.js";
+import { executionRoutes } from "./modules/executions/execution.routes.js";
+import { auditLogRoutes } from "./modules/audit-logs/audit-log.routes.js";
+
+export async function buildApp() {
   const app = Fastify({
     logger: true,
+  });
+
+  await app.register(cors, {
+    origin: true,
+  });
+
+  await app.register(helmet);
+
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: "1 minute",
+  });
+
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: "inFlowForge API",
+        description: "Workflow automation backend API",
+        version: "1.0.0",
+      },
+    },
+  });
+
+  await app.register(swaggerUI, {
+    routePrefix: "/docs",
   });
 
   app.get("/", async () => {
@@ -37,6 +76,30 @@ export function buildApp() {
       success: true,
       jobId: job.id,
     };
+  });
+
+  app.get("/protected/me", { preHandler: apiKeyAuth }, async (request) => {
+    return {
+      workspace: request.workspace,
+      apiKey: {
+        id: request.apiKey?.id,
+        name: request.apiKey?.name,
+        keyPrefix: request.apiKey?.keyPrefix,
+        status: request.apiKey?.status,
+      },
+    };
+  });
+
+  app.register(workflowRoutes, {
+    prefix: "/workflows",
+  });
+
+  app.register(executionRoutes, {
+    prefix: "/executions",
+  });
+
+  app.register(auditLogRoutes, {
+    prefix: "/audit-logs",
   });
 
   return app;

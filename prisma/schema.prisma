@@ -5,3 +5,97 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum WorkflowStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  apiKeys     ApiKey[]
+  workflows   Workflow[]
+  executions  WorkflowExecution[]
+  auditLogs   AuditLog[]
+}
+
+model ApiKey {
+  id           String       @id @default(cuid())
+  name         String
+  keyHash      String       @unique
+  keyPrefix    String
+  status       ApiKeyStatus @default(ACTIVE)
+  lastUsedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  revokedAt    DateTime?
+
+  workspaceId  String
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model Workflow {
+  id           String         @id @default(cuid())
+  name         String
+  description  String?
+  status       WorkflowStatus @default(ACTIVE)
+
+  trigger      Json
+  conditions   Json?
+  actions      Json
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  workspaceId  String
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  executions   WorkflowExecution[]
+}
+
+model WorkflowExecution {
+  id           String          @id @default(cuid())
+  status       ExecutionStatus @default(PENDING)
+  input        Json?
+  output       Json?
+  error        String?
+
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime        @default(now())
+
+  workspaceId  String
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  workflowId   String
+  workflow     Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  action       String
+  entity       String
+  entityId     String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
