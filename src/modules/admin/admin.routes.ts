@@ -24,7 +24,6 @@ const adminHeaderSchema = {
       description: "Admin access token",
     },
   },
-  required: ["x-admin-token"],
 };
 
 const workspaceParamsSchema = {
@@ -72,6 +71,7 @@ export async function adminRoutes(app: FastifyInstance) {
         summary: "List workspaces",
         description: "Lists all workspaces with usage counts.",
         headers: adminHeaderSchema,
+        security: [{ AdminTokenAuth: [] }],
       },
     },
     async () => {
@@ -99,6 +99,7 @@ export async function adminRoutes(app: FastifyInstance) {
         summary: "List API keys",
         description: "Lists all API keys without exposing their secret values.",
         headers: adminHeaderSchema,
+        security: [{ AdminTokenAuth: [] }],
       },
     },
     async () => {
@@ -131,6 +132,7 @@ export async function adminRoutes(app: FastifyInstance) {
         headers: adminHeaderSchema,
         params: workspaceParamsSchema,
         body: createApiKeyBodySchema,
+        security: [{ AdminTokenAuth: [] }],
       },
     },
     async (request, reply) => {
@@ -184,6 +186,7 @@ export async function adminRoutes(app: FastifyInstance) {
         description: "Revokes an API key so it can no longer access the API.",
         headers: adminHeaderSchema,
         params: apiKeyParamsSchema,
+        security: [{ AdminTokenAuth: [] }],
       },
     },
     async (request, reply) => {
@@ -232,6 +235,7 @@ export async function adminRoutes(app: FastifyInstance) {
         description:
           "Returns global platform metrics for workspaces, keys, workflows, executions, and audit logs.",
         headers: adminHeaderSchema,
+        security: [{ AdminTokenAuth: [] }],
       },
     },
     async () => {
@@ -278,6 +282,7 @@ export async function adminRoutes(app: FastifyInstance) {
         description:
           "Returns execution metrics grouped by workflow, including success, failure, pending, and running counts.",
         headers: adminHeaderSchema,
+        security: [{ AdminTokenAuth: [] }],
       },
     },
     async () => {
@@ -340,6 +345,7 @@ export async function adminRoutes(app: FastifyInstance) {
         summary: "List recent executions",
         description: "Returns the 20 most recent workflow executions.",
         headers: adminHeaderSchema,
+        security: [{ AdminTokenAuth: [] }],
       },
     },
     async () => {
@@ -366,6 +372,7 @@ export async function adminRoutes(app: FastifyInstance) {
         summary: "List failed executions",
         description: "Returns the 20 most recent failed workflow executions.",
         headers: adminHeaderSchema,
+        security: [{ AdminTokenAuth: [] }],
       },
     },
     async () => {
@@ -394,6 +401,7 @@ export async function adminRoutes(app: FastifyInstance) {
         description:
           "Marks old PENDING or RUNNING executions as FAILED if they have been stuck for more than 10 minutes.",
         headers: adminHeaderSchema,
+        security: [{ AdminTokenAuth: [] }],
       },
     },
     async () => {

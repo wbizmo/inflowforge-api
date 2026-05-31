@@ -11,7 +11,6 @@ const apiKeyHeaderSchema = {
       description: "Workspace API key",
     },
   },
-  required: ["x-api-key"],
 };
 
 const executionParamsSchema = {
@@ -37,6 +36,7 @@ export async function executionRoutes(app: FastifyInstance) {
         description:
           "Lists workflow executions belonging to the authenticated workspace.",
         headers: apiKeyHeaderSchema,
+        security: [{ ApiKeyAuth: [] }],
       },
     },
     async (request) => {
@@ -69,6 +69,7 @@ export async function executionRoutes(app: FastifyInstance) {
           "Returns one workflow execution by ID if it belongs to the authenticated workspace.",
         headers: apiKeyHeaderSchema,
         params: executionParamsSchema,
+        security: [{ ApiKeyAuth: [] }],
       },
     },
     async (request, reply) => {

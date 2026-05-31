@@ -27,7 +27,6 @@ const apiKeyHeaderSchema = {
       description: "Workspace API key",
     },
   },
-  required: ["x-api-key"],
 };
 
 export async function buildApp() {
@@ -63,7 +62,10 @@ export async function buildApp() {
         { name: "Webhooks", description: "External workflow trigger endpoints" },
         { name: "Admin", description: "Admin management endpoints" },
         { name: "Admin Analytics", description: "Admin analytics endpoints" },
-        { name: "Admin Executions", description: "Admin execution monitoring endpoints" },
+        {
+          name: "Admin Executions",
+          description: "Admin execution monitoring endpoints",
+        },
       ],
       components: {
         securitySchemes: {
@@ -108,8 +110,7 @@ export async function buildApp() {
       schema: {
         tags: ["System"],
         summary: "Health check",
-        description:
-          "Checks API, PostgreSQL, Redis, and queue readiness.",
+        description: "Checks API, PostgreSQL, Redis, and queue readiness.",
       },
     },
     async () => {

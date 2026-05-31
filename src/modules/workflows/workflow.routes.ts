@@ -27,7 +27,6 @@ const apiKeyHeaderSchema = {
       description: "Workspace API key",
     },
   },
-  required: ["x-api-key"],
 };
 
 const workflowBodySchema = {
@@ -135,6 +134,7 @@ export async function workflowRoutes(app: FastifyInstance) {
           "Creates a workflow for the authenticated workspace using the x-api-key header.",
         headers: apiKeyHeaderSchema,
         body: workflowBodySchema,
+        security: [{ ApiKeyAuth: [] }],
       },
     },
     async (request, reply) => {
@@ -171,9 +171,9 @@ export async function workflowRoutes(app: FastifyInstance) {
       schema: {
         tags: ["Workflows"],
         summary: "List workflows",
-        description:
-          "Lists workflows belonging to the authenticated workspace.",
+        description: "Lists workflows belonging to the authenticated workspace.",
         headers: apiKeyHeaderSchema,
+        security: [{ ApiKeyAuth: [] }],
       },
     },
     async (request) => {
@@ -198,6 +198,7 @@ export async function workflowRoutes(app: FastifyInstance) {
           "Returns one workflow by ID if it belongs to the authenticated workspace.",
         headers: apiKeyHeaderSchema,
         params: workflowParamsSchema,
+        security: [{ ApiKeyAuth: [] }],
       },
     },
     async (request, reply) => {
@@ -232,6 +233,7 @@ export async function workflowRoutes(app: FastifyInstance) {
         headers: apiKeyHeaderSchema,
         params: workflowParamsSchema,
         body: executeWorkflowBodySchema,
+        security: [{ ApiKeyAuth: [] }],
       },
     },
     async (request, reply) => {
@@ -299,6 +301,7 @@ export async function workflowRoutes(app: FastifyInstance) {
         headers: apiKeyHeaderSchema,
         params: workflowParamsSchema,
         body: updateWorkflowBodySchema,
+        security: [{ ApiKeyAuth: [] }],
       },
     },
     async (request, reply) => {
@@ -348,6 +351,7 @@ export async function workflowRoutes(app: FastifyInstance) {
           "Deletes a workflow that belongs to the authenticated workspace.",
         headers: apiKeyHeaderSchema,
         params: workflowParamsSchema,
+        security: [{ ApiKeyAuth: [] }],
       },
     },
     async (request, reply) => {

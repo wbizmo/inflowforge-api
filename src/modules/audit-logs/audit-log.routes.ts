@@ -10,7 +10,6 @@ const apiKeyHeaderSchema = {
       description: "Workspace API key",
     },
   },
-  required: ["x-api-key"],
 };
 
 export async function auditLogRoutes(app: FastifyInstance) {
@@ -22,9 +21,9 @@ export async function auditLogRoutes(app: FastifyInstance) {
       schema: {
         tags: ["Audit Logs"],
         summary: "List audit logs",
-        description:
-          "Lists audit logs belonging to the authenticated workspace.",
+        description: "Lists audit logs belonging to the authenticated workspace.",
         headers: apiKeyHeaderSchema,
+        security: [{ ApiKeyAuth: [] }],
       },
     },
     async (request) => {
