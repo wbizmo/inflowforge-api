@@ -1,6 +1,7 @@
+import type { Prisma } from "@prisma/client";
 import { Worker } from "bullmq";
 import { prisma } from "../plugins/prisma.js";
-import { redis } from "../plugins/redis.js";
+import { redisConnectionOptions } from "../plugins/redis.js";
 import { evaluateConditions } from "../engine/condition-engine.js";
 import { executeActions } from "../engine/action-engine.js";
 
@@ -62,7 +63,7 @@ export const workflowWorker = new Worker(
         skipped: true,
         actionsExecuted: 0,
         results: [],
-      };
+      } as Prisma.InputJsonValue;
 
       await prisma.workflowExecution.update({
         where: { id: executionId },
@@ -89,7 +90,7 @@ export const workflowWorker = new Worker(
       skipped: false,
       actionsExecuted: actionResults.length,
       results: actionResults,
-    };
+    } as Prisma.InputJsonValue;
 
     await prisma.workflowExecution.update({
       where: { id: executionId },
@@ -103,7 +104,7 @@ export const workflowWorker = new Worker(
     return output;
   },
   {
-    connection: redis,
+    connection: redisConnectionOptions,
   }
 );
 

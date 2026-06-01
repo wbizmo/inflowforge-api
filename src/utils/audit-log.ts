@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../plugins/prisma.js";
 
 type CreateAuditLogInput = {
@@ -8,14 +9,20 @@ type CreateAuditLogInput = {
   metadata?: Record<string, unknown>;
 };
 
-export async function createAuditLog(input: CreateAuditLogInput) {
+export async function createAuditLog({
+  workspaceId,
+  action,
+  entity,
+  entityId,
+  metadata = {},
+}: CreateAuditLogInput) {
   return prisma.auditLog.create({
     data: {
-      workspaceId: input.workspaceId,
-      action: input.action,
-      entity: input.entity,
-      entityId: input.entityId,
-      metadata: input.metadata ?? {},
+      workspaceId,
+      action,
+      entity,
+      entityId,
+      metadata: metadata as Prisma.InputJsonValue,
     },
   });
 }

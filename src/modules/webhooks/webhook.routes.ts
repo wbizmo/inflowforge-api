@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../plugins/prisma.js";
 import { workflowQueue } from "../../queues/workflow.queue.js";
@@ -35,7 +36,9 @@ export async function webhookRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const params = z.object({ workflowId: z.string() }).parse(request.params);
+      const params = z.object({
+        workflowId: z.string(),
+      }).parse(request.params);
 
       const workflow = await prisma.workflow.findFirst({
         where: {
@@ -51,10 +54,14 @@ export async function webhookRoutes(app: FastifyInstance) {
         });
       }
 
+      const payload =
+        ((request.body as Record<string, unknown>) ??
+          {}) as Prisma.InputJsonValue;
+
       const execution = await prisma.workflowExecution.create({
         data: {
           status: "PENDING",
-          input: (request.body as Record<string, unknown>) ?? {},
+          input: payload,
           workspaceId: workflow.workspaceId,
           workflowId: workflow.id,
         },
