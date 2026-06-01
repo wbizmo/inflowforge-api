@@ -29,6 +29,102 @@ const apiKeyHeaderSchema = {
   },
 };
 
+const conditionSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    field: {
+      type: "string",
+      description:
+        "Input field to evaluate. Example: plan, input.plan, user.email",
+    },
+    operator: {
+      type: "string",
+      enum: [
+        "equals",
+        "not_equals",
+        "contains",
+        "exists",
+        "greater_than",
+        "less_than",
+      ],
+      description: "Condition operator",
+    },
+    value: {
+      description: "Expected comparison value",
+    },
+  },
+  required: ["field", "operator"],
+};
+
+const actionSchema = {
+  type: "object",
+  additionalProperties: true,
+  properties: {
+    type: {
+      type: "string",
+      enum: ["email", "telegram", "http_request", "log", "delay"],
+      description: "Action type to execute",
+    },
+
+    to: {
+      type: "string",
+      description:
+        "Email recipient. Supports templates like {{input.email}}. Used by email action.",
+    },
+    subject: {
+      type: "string",
+      description:
+        "Email subject. Supports templates like Welcome {{input.name}}. Used by email action.",
+    },
+    html: {
+      type: "string",
+      description:
+        "Email HTML body. Supports templates like <p>Hello {{input.name}}</p>. Used by email action.",
+    },
+    text: {
+      type: "string",
+      description:
+        "Email plain text body. Supports templates. Used by email action.",
+    },
+
+    message: {
+      type: "string",
+      description:
+        "Message content for telegram or log actions. Supports templates like {{input.email}}.",
+    },
+
+    method: {
+      type: "string",
+      enum: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+      description: "HTTP method for http_request action.",
+    },
+    url: {
+      type: "string",
+      description:
+        "Target URL for http_request action. Supports templates.",
+    },
+    headers: {
+      type: "object",
+      additionalProperties: true,
+      description: "Optional headers for http_request action.",
+    },
+    body: {
+      type: "object",
+      additionalProperties: true,
+      description:
+        "Optional JSON body for http_request action. Supports templates.",
+    },
+
+    seconds: {
+      type: "number",
+      description:
+        "Delay duration in seconds. Used by delay action. Currently capped internally for safety.",
+    },
+  },
+  required: ["type"],
+};
+
 const workflowBodySchema = {
   type: "object",
   required: ["name", "trigger", "actions"],
@@ -45,21 +141,32 @@ const workflowBodySchema = {
     trigger: {
       type: "object",
       additionalProperties: true,
-      description: "Trigger configuration, for example webhook or schedule",
+      description:
+        "Trigger configuration. Example: { type: 'webhook' }",
+      properties: {
+        type: {
+          type: "string",
+          description: "Trigger type, for example webhook or schedule",
+        },
+      },
     },
     conditions: {
-      type: "object",
-      additionalProperties: true,
-      description: "Optional condition rules for the workflow",
+      oneOf: [
+        conditionSchema,
+        {
+          type: "array",
+          items: conditionSchema,
+        },
+      ],
+      description:
+        "Optional condition or list of conditions. Actions run only when conditions pass. Example: { field: 'plan', operator: 'equals', value: 'premium' }",
     },
     actions: {
       type: "array",
       minItems: 1,
-      description: "Workflow actions to execute",
-      items: {
-        type: "object",
-        additionalProperties: true,
-      },
+      description:
+        "Actions to execute when the workflow runs. Supported action types: email, telegram, http_request, log, delay.",
+      items: actionSchema,
     },
   },
 };
@@ -80,20 +187,30 @@ const updateWorkflowBodySchema = {
       type: "object",
       additionalProperties: true,
       description: "Trigger configuration",
+      properties: {
+        type: {
+          type: "string",
+          description: "Trigger type, for example webhook or schedule",
+        },
+      },
     },
     conditions: {
-      type: "object",
-      additionalProperties: true,
-      description: "Optional condition rules",
+      oneOf: [
+        conditionSchema,
+        {
+          type: "array",
+          items: conditionSchema,
+        },
+      ],
+      description:
+        "Optional condition or list of conditions. Actions run only when conditions pass.",
     },
     actions: {
       type: "array",
       minItems: 1,
-      description: "Workflow actions to execute",
-      items: {
-        type: "object",
-        additionalProperties: true,
-      },
+      description:
+        "Actions to execute when the workflow runs. Supported action types: email, telegram, http_request, log, delay.",
+      items: actionSchema,
     },
   },
   additionalProperties: false,
@@ -116,7 +233,8 @@ const executeWorkflowBodySchema = {
     input: {
       type: "object",
       additionalProperties: true,
-      description: "Input payload passed into the workflow execution",
+      description:
+        "Input payload passed into the workflow execution. Example: { name: 'Williams', email: 'demo@example.com', plan: 'premium' }",
     },
   },
 };
@@ -131,7 +249,7 @@ export async function workflowRoutes(app: FastifyInstance) {
         tags: ["Workflows"],
         summary: "Create a workflow",
         description:
-          "Creates a workflow for the authenticated workspace using the x-api-key header.",
+          "Creates a workflow for the authenticated workspace. Workflows can use webhook triggers, optional conditions, and actions like Resend email, Telegram notifications, HTTP requests, logs, and delays.",
         headers: apiKeyHeaderSchema,
         body: workflowBodySchema,
         security: [{ ApiKeyAuth: [] }],
@@ -229,7 +347,7 @@ export async function workflowRoutes(app: FastifyInstance) {
         tags: ["Workflows"],
         summary: "Execute a workflow",
         description:
-          "Creates a workflow execution record and queues it for background processing.",
+          "Creates a workflow execution record and queues it for background processing. The worker evaluates conditions and runs configured actions.",
         headers: apiKeyHeaderSchema,
         params: workflowParamsSchema,
         body: executeWorkflowBodySchema,

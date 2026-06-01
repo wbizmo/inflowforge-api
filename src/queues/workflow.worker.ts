@@ -1,6 +1,8 @@
 import { Worker } from "bullmq";
 import { prisma } from "../plugins/prisma.js";
 import { redis } from "../plugins/redis.js";
+import { evaluateConditions } from "../engine/condition-engine.js";
+import { executeActions } from "../engine/action-engine.js";
 
 export const workflowWorker = new Worker(
   "workflow-executions",
@@ -43,22 +45,48 @@ export const workflowWorker = new Worker(
       throw new Error("Workflow not found during execution");
     }
 
+    const workflowInput = (input ?? {}) as Record<string, unknown>;
     const actions = workflow.actions as Array<Record<string, unknown>>;
 
-    const actionResults = actions.map((action, index) => {
-      return {
-        index,
-        action,
-        status: "SUCCESS",
-        simulated: true,
-        executedAt: new Date().toISOString(),
+    const conditionResult = evaluateConditions(
+      workflow.conditions,
+      workflowInput
+    );
+
+    if (!conditionResult.passed) {
+      const output = {
+        workflowId: workflow.id,
+        workflowName: workflow.name,
+        input: workflowInput,
+        conditions: conditionResult,
+        skipped: true,
+        actionsExecuted: 0,
+        results: [],
       };
+
+      await prisma.workflowExecution.update({
+        where: { id: executionId },
+        data: {
+          status: "SUCCESS",
+          output,
+          finishedAt: new Date(),
+        },
+      });
+
+      return output;
+    }
+
+    const actionResults = await executeActions({
+      actions,
+      input: workflowInput,
     });
 
     const output = {
       workflowId: workflow.id,
       workflowName: workflow.name,
-      input,
+      input: workflowInput,
+      conditions: conditionResult,
+      skipped: false,
       actionsExecuted: actionResults.length,
       results: actionResults,
     };
