@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -22,6 +23,18 @@ const webhookBodySchema = {
   description: "Any JSON payload sent by the external system",
 };
 
+function validWebhookSecret(provided: unknown): boolean {
+  const expected = process.env.WEBHOOK_TRIGGER_SECRET;
+  if (!expected || typeof provided !== "string") return false;
+
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  const providedBuffer = Buffer.from(provided, "utf8");
+  return (
+    expectedBuffer.length === providedBuffer.length &&
+    timingSafeEqual(expectedBuffer, providedBuffer)
+  );
+}
+
 export async function webhookRoutes(app: FastifyInstance) {
   app.post(
     "/:workflowId",
@@ -30,12 +43,34 @@ export async function webhookRoutes(app: FastifyInstance) {
         tags: ["Webhooks"],
         summary: "Trigger workflow by webhook",
         description:
-          "Receives an external webhook payload and queues the matching active workflow for execution.",
+          "Receives an authenticated external webhook payload and queues the matching active workflow for execution.",
         params: webhookParamsSchema,
         body: webhookBodySchema,
+        headers: {
+          type: "object",
+          required: ["x-inflowforge-webhook-secret"],
+          properties: {
+            "x-inflowforge-webhook-secret": { type: "string", minLength: 16 },
+          },
+        },
       },
     },
     async (request, reply) => {
+      if (!process.env.WEBHOOK_TRIGGER_SECRET) {
+        request.log.error("WEBHOOK_TRIGGER_SECRET is not configured; webhook triggers are disabled");
+        return reply.status(503).send({
+          error: "Service Unavailable",
+          message: "Webhook triggers are not configured",
+        });
+      }
+
+      if (!validWebhookSecret(request.headers["x-inflowforge-webhook-secret"])) {
+        return reply.status(401).send({
+          error: "Unauthorized",
+          message: "Invalid webhook secret",
+        });
+      }
+
       const params = z.object({
         workflowId: z.string(),
       }).parse(request.params);
