@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { resolveObjectTemplates, resolveTemplate } from "./template.js";
+import { safeHttpRequest } from "../utils/safe-http.js";
 
 type Action = Record<string, unknown>;
 
@@ -113,22 +114,15 @@ async function executeHttpRequestAction(
     throw new Error("HTTP request action requires a URL");
   }
 
-  const response = await fetch(String(url), {
+  const response = await safeHttpRequest({
+    url: String(url),
     method,
     headers: {
       "Content-Type": "application/json",
       ...headers,
     },
-    body: method === "GET" ? undefined : JSON.stringify(body),
+    body,
   });
-
-  let responseBody: unknown;
-
-  try {
-    responseBody = await response.json();
-  } catch {
-    responseBody = await response.text();
-  }
 
   return {
     type: "http_request",
@@ -136,7 +130,7 @@ async function executeHttpRequestAction(
     method,
     url,
     statusCode: response.status,
-    responseBody,
+    responseBody: response.body,
   };
 }
 
