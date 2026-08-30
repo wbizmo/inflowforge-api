@@ -1,3 +1,5 @@
+import http, { type IncomingMessage, type RequestOptions } from "node:http";
+import https from "node:https";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
@@ -12,6 +14,12 @@ const BLOCKED_REQUEST_HEADERS = new Set([
   "proxy-connection",
   "transfer-encoding",
 ]);
+
+type ResolvedTarget = {
+  url: URL;
+  address: string;
+  family: 4 | 6;
+};
 
 function isPrivateIpv4(address: string): boolean {
   const parts = address.split(".").map(Number);
@@ -54,7 +62,7 @@ function isPrivateAddress(address: string): boolean {
   return true;
 }
 
-async function assertPublicUrl(value: string): Promise<URL> {
+async function resolvePublicTarget(value: string): Promise<ResolvedTarget> {
   let url: URL;
   try {
     url = new URL(value);
@@ -72,55 +80,62 @@ async function assertPublicUrl(value: string): Promise<URL> {
     throw new Error("HTTP request action cannot target local or private network addresses");
   }
 
-  const directIpVersion = isIP(url.hostname);
-  if (directIpVersion && isPrivateAddress(url.hostname)) {
-    throw new Error("HTTP request action cannot target local or private network addresses");
-  }
+  const directFamily = isIP(url.hostname);
+  const resolved = directFamily
+    ? [{ address: url.hostname, family: directFamily }]
+    : await lookup(url.hostname, { all: true, verbatim: true });
 
-  const resolved = await lookup(url.hostname, { all: true, verbatim: true });
   if (resolved.length === 0 || resolved.some(({ address }) => isPrivateAddress(address))) {
     throw new Error("HTTP request action cannot target local or private network addresses");
   }
 
-  return url;
+  const pinned = resolved[0];
+  if (pinned.family !== 4 && pinned.family !== 6) {
+    throw new Error("HTTP request action could not resolve a safe network destination");
+  }
+
+  return {
+    url,
+    address: pinned.address,
+    family: pinned.family,
+  };
 }
 
-async function readLimitedBody(response: Response): Promise<unknown> {
-  if (!response.body) return null;
+function readLimitedBody(response: IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
 
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
+    response.on("data", (chunk: Buffer | string) => {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += buffer.length;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (!value) continue;
-    size += value.byteLength;
-    if (size > MAX_RESPONSE_BYTES) {
-      await reader.cancel();
-      throw new Error("HTTP request action response exceeded the 1 MiB safety limit");
-    }
-    chunks.push(value);
-  }
+      if (size > MAX_RESPONSE_BYTES) {
+        response.destroy();
+        reject(new Error("HTTP request action response exceeded the 1 MiB safety limit"));
+        return;
+      }
 
-  const merged = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
+      chunks.push(buffer);
+    });
 
-  const text = new TextDecoder().decode(merged);
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json") && text) {
-    try {
-      return JSON.parse(text);
-    } catch {
-      return text;
-    }
-  }
-  return text;
+    response.on("error", reject);
+    response.on("end", () => {
+      const text = Buffer.concat(chunks).toString("utf8");
+      const contentType = String(response.headers["content-type"] ?? "");
+
+      if (contentType.includes("application/json") && text) {
+        try {
+          resolve(JSON.parse(text));
+          return;
+        } catch {
+          // Fall through to returning the original text.
+        }
+      }
+
+      resolve(text);
+    });
+  });
 }
 
 export async function safeHttpRequest(input: {
@@ -134,37 +149,66 @@ export async function safeHttpRequest(input: {
     throw new Error(`HTTP request action method ${method} is not allowed`);
   }
 
-  const url = await assertPublicUrl(input.url);
+  const target = await resolvePublicTarget(input.url);
   const headers = Object.fromEntries(
     Object.entries(input.headers).filter(([name]) => !BLOCKED_REQUEST_HEADERS.has(name.toLowerCase()))
   );
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  try {
-    const response = await fetch(url, {
-      method,
-      headers,
-      body: method === "GET" ? undefined : JSON.stringify(input.body ?? {}),
-      redirect: "manual",
-      signal: controller.signal,
+  const requestBody = method === "GET" ? undefined : JSON.stringify(input.body ?? {});
+  if (requestBody !== undefined) {
+    if (!Object.keys(headers).some((name) => name.toLowerCase() === "content-type")) {
+      headers["content-type"] = "application/json";
+    }
+    headers["content-length"] = String(Buffer.byteLength(requestBody));
+  }
+
+  const options: RequestOptions = {
+    protocol: target.url.protocol,
+    hostname: target.url.hostname,
+    port: target.url.port || undefined,
+    path: `${target.url.pathname}${target.url.search}`,
+    method,
+    headers,
+    lookup: (_hostname, _options, callback) => {
+      callback(null, target.address, target.family);
+    },
+  };
+
+  const transport = target.url.protocol === "https:" ? https : http;
+
+  return await new Promise<{
+    ok: boolean;
+    status: number;
+    body: unknown;
+  }>((resolve, reject) => {
+    const request = transport.request(options, async (response) => {
+      const status = response.statusCode ?? 0;
+
+      if (status >= 300 && status < 400) {
+        response.resume();
+        reject(new Error("HTTP request action redirects are blocked to prevent SSRF bypasses"));
+        return;
+      }
+
+      try {
+        resolve({
+          ok: status >= 200 && status < 300,
+          status,
+          body: await readLimitedBody(response),
+        });
+      } catch (error) {
+        reject(error);
+      }
     });
 
-    if (response.status >= 300 && response.status < 400) {
-      throw new Error("HTTP request action redirects are blocked to prevent SSRF bypasses");
-    }
+    request.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      request.destroy(new Error("HTTP request action timed out"));
+    });
+    request.on("error", reject);
 
-    return {
-      ok: response.ok,
-      status: response.status,
-      body: await readLimitedBody(response),
-    };
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("HTTP request action timed out");
+    if (requestBody !== undefined) {
+      request.write(requestBody);
     }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
+    request.end();
+  });
 }
