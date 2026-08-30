@@ -29,13 +29,40 @@ const apiKeyHeaderSchema = {
   },
 };
 
+function configuredCorsOrigins(): Set<string> {
+  return new Set(
+    (process.env.CORS_ALLOWED_ORIGINS ?? "")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+  );
+}
+
+function isDevelopmentLocalOrigin(origin: string): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+  try {
+    const url = new URL(origin);
+    return ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export async function buildApp() {
   const app = Fastify({
     logger: true,
   });
+  const allowedOrigins = configuredCorsOrigins();
 
   await app.register(cors, {
-    origin: true,
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      callback(null, allowedOrigins.has(origin) || isDevelopmentLocalOrigin(origin));
+    },
   });
 
   await app.register(helmet);
@@ -127,28 +154,32 @@ export async function buildApp() {
     }
   );
 
-  app.post(
-    "/queue/test",
-    {
-      schema: {
-        tags: ["System"],
-        summary: "Queue test",
-        description:
-          "Adds a test job to the workflow execution queue. Useful during development.",
+  if (process.env.NODE_ENV !== "production") {
+    app.post(
+      "/queue/test",
+      {
+        preHandler: apiKeyAuth,
+        schema: {
+          tags: ["System"],
+          summary: "Queue test",
+          description: "Adds an authenticated test job to the queue in non-production environments only.",
+          headers: apiKeyHeaderSchema,
+          security: [{ ApiKeyAuth: [] }],
+        },
       },
-    },
-    async () => {
-      const job = await workflowQueue.add("test-job", {
-        message: "Hello from BullMQ",
-        createdAt: new Date(),
-      });
+      async () => {
+        const job = await workflowQueue.add("test-job", {
+          message: "Hello from BullMQ",
+          createdAt: new Date(),
+        });
 
-      return {
-        success: true,
-        jobId: job.id,
-      };
-    }
-  );
+        return {
+          success: true,
+          jobId: job.id,
+        };
+      }
+    );
+  }
 
   app.get(
     "/protected/me",
