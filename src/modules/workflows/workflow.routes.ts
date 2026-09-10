@@ -10,11 +10,31 @@ import {
   sendPage,
 } from "../../utils/pagination.js";
 
+const conditionValidationSchema = z
+  .object({
+    field: z.string().min(1),
+    operator: z.enum([
+      "equals",
+      "not_equals",
+      "contains",
+      "exists",
+      "greater_than",
+      "less_than",
+    ]),
+    value: z.any().optional(),
+  })
+  .strict();
+
+const conditionsValidationSchema = z.union([
+  conditionValidationSchema,
+  z.array(conditionValidationSchema).min(1),
+]);
+
 const createWorkflowSchema = z.object({
   name: z.string().min(2),
   description: z.string().optional(),
   trigger: z.record(z.string(), z.any()),
-  conditions: z.record(z.string(), z.any()).optional(),
+  conditions: conditionsValidationSchema.optional(),
   actions: z.array(z.record(z.string(), z.any())).min(1),
 });
 
@@ -160,6 +180,7 @@ const workflowBodySchema = {
         conditionSchema,
         {
           type: "array",
+          minItems: 1,
           items: conditionSchema,
         },
       ],
@@ -204,6 +225,7 @@ const updateWorkflowBodySchema = {
         conditionSchema,
         {
           type: "array",
+          minItems: 1,
           items: conditionSchema,
         },
       ],
