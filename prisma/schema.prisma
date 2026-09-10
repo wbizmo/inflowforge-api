@@ -68,6 +68,8 @@ model Workflow {
   workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   executions   WorkflowExecution[]
+
+  @@index([workspaceId, createdAt, id])
 }
 
 model WorkflowExecution {
@@ -86,6 +88,10 @@ model WorkflowExecution {
 
   workflowId   String
   workflow     Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt, id])
+  @@index([workflowId, status, createdAt])
+  @@index([status, createdAt])
 }
 
 model AuditLog {
@@ -98,4 +104,6 @@ model AuditLog {
 
   workspaceId  String
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt, id])
 }
