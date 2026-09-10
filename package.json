@@ -1,6 +1,6 @@
 {
   "name": "inflowforge-api",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Backend-first workflow automation REST API built with Fastify, PostgreSQL, Redis, BullMQ, and Docker.",
   "main": "dist/server.js",
   "type": "module",
@@ -16,11 +16,24 @@
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio"
   },
-  "repository": {"type": "git", "url": "git+https://github.com/wbizmo/inflowforge-api.git"},
-  "keywords": ["workflow", "automation", "fastify", "api", "bullmq", "redis", "postgresql"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wbizmo/inflowforge-api.git"
+  },
+  "keywords": [
+    "workflow",
+    "automation",
+    "fastify",
+    "api",
+    "bullmq",
+    "redis",
+    "postgresql"
+  ],
   "author": "Ashibuogwu Williams",
   "license": "MIT",
-  "bugs": {"url": "https://github.com/wbizmo/inflowforge-api/issues"},
+  "bugs": {
+    "url": "https://github.com/wbizmo/inflowforge-api/issues"
+  },
   "homepage": "https://github.com/wbizmo/inflowforge-api#readme",
   "dependencies": {
     "@fastify/cors": "^11.2.0",

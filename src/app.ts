@@ -78,7 +78,7 @@ export async function buildApp() {
         title: "inFlowForge API",
         description:
           "Backend-first workflow automation API with API keys, workflows, queues, executions, audit logs, analytics, and webhook triggers.",
-        version: "1.0.0",
+        version: "1.0.1",
       },
       tags: [
         { name: "System", description: "System and health endpoints" },
