@@ -4,7 +4,22 @@ A production-style workflow automation platform built with Fastify, TypeScript, 
 
 inFlowForge allows developers to build automated workflows using triggers, conditions, actions, webhooks, background processing, and external integrations such as email and Telegram notifications.
 
-The project was built to demonstrate modern backend engineering practices including API design, authentication, queue processing, workflow automation, event-driven architecture, webhook integrations, background workers, and production deployment.
+The project demonstrates modern backend engineering practices including API design, authentication, queue processing, workflow automation, event-driven architecture, webhook integrations, background workers, and production deployment.
+
+---
+
+## Current Release
+
+**Version:** `1.0.1`  
+**Tag:** `inFlowForge_API_v1.0.1`  
+**Release:** [inFlowForge API v1.0.1 — Security, Reliability & Performance Hardening](https://github.com/wbizmo/inflowforge-api/releases/tag/inFlowForge_API_v1.0.1)
+
+Release documentation:
+
+- [Changelog](./CHANGELOG.md)
+- [Release notes](./RELEASE_NOTES.md)
+
+v1.0.1 hardens the production API with patched dependencies, constant-time admin-token comparison, safer worker logging, bounded cursor pagination, lower API-key write amplification, database-side analytics aggregation, targeted query indexes, bounded external action I/O, validation parity, and a permanent PostgreSQL/Redis release-verification CI gate.
 
 ---
 
@@ -268,6 +283,19 @@ Administrative analytics include:
 * Success rates
 * Failure rates
 * Audit log totals
+
+---
+
+## Pagination
+
+Workflow, execution, and audit-log list endpoints use bounded cursor pagination in v1.0.1.
+
+- Default page size: 50
+- Maximum page size: 100
+- Next page cursor: `x-next-cursor` response header
+- Effective page limit: `x-page-limit` response header
+
+The response body remains an array for compatibility.
 
 ---
 
@@ -635,6 +663,8 @@ Build project:
 npm run build
 ```
 
+CI verifies the dependency audit, PostgreSQL, Redis, Prisma initialization, build, lint, and complete test suite on pull requests and `main`.
+
 ---
 
 # Deployment
@@ -647,7 +677,7 @@ Production deployment uses:
 * Resend
 * Telegram Bot API
 
-The live deployment automatically builds from GitHub.
+The live deployment automatically builds from the authoritative `main` branch.
 
 ---
 
