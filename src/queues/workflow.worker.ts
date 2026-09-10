@@ -8,10 +8,14 @@ import { executeActions } from "../engine/action-engine.js";
 export const workflowWorker = new Worker(
   "workflow-executions",
   async (job) => {
+    const { executionId, workflowId, workspaceId, input } = job.data ?? {};
+
     console.log("Processing workflow job:", {
       id: job.id,
       name: job.name,
-      data: job.data,
+      executionId,
+      workflowId,
+      workspaceId,
     });
 
     if (job.name === "test-job") {
@@ -24,8 +28,6 @@ export const workflowWorker = new Worker(
     if (job.name !== "execute-workflow") {
       throw new Error(`Unknown job type: ${job.name}`);
     }
-
-    const { executionId, workflowId, workspaceId, input } = job.data;
 
     await prisma.workflowExecution.update({
       where: { id: executionId },
