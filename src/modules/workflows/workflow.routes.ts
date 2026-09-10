@@ -4,6 +4,11 @@ import { prisma } from "../../plugins/prisma.js";
 import { apiKeyAuth } from "../../middleware/api-key-auth.js";
 import { workflowQueue } from "../../queues/workflow.queue.js";
 import { createAuditLog } from "../../utils/audit-log.js";
+import {
+  paginationQueryJsonSchema,
+  paginationQuerySchema,
+  sendPage,
+} from "../../utils/pagination.js";
 
 const createWorkflowSchema = z.object({
   name: z.string().min(2),
@@ -289,20 +294,23 @@ export async function workflowRoutes(app: FastifyInstance) {
       schema: {
         tags: ["Workflows"],
         summary: "List workflows",
-        description: "Lists workflows belonging to the authenticated workspace.",
+        description:
+          "Lists workflows belonging to the authenticated workspace using bounded cursor pagination. The response remains an array; when another page exists its cursor is returned in the x-next-cursor header.",
         headers: apiKeyHeaderSchema,
+        querystring: paginationQueryJsonSchema,
         security: [{ ApiKeyAuth: [] }],
       },
     },
-    async (request) => {
-      return prisma.workflow.findMany({
-        where: {
-          workspaceId: request.workspace!.id,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
+    async (request, reply) => {
+      const { limit, cursor } = paginationQuerySchema.parse(request.query);
+      const rows = await prisma.workflow.findMany({
+        where: { workspaceId: request.workspace!.id },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       });
+
+      return sendPage(rows, limit, reply);
     }
   );
 
