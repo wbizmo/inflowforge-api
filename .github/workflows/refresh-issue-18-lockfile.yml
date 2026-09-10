@@ -1,0 +1,25 @@
+name: Refresh issue 18 lockfile
+on:
+  push:
+    branches: [fix/18-audit-utility-transitives]
+permissions:
+  contents: write
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm audit fix --package-lock-only --ignore-scripts
+      - run: npm ci --ignore-scripts
+      - run: npm audit --audit-level=moderate
+      - name: Commit lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git diff --cached --quiet || git commit -m "security: refresh utility transitive lockfile"
+          git push origin HEAD:fix/18-audit-utility-transitives
