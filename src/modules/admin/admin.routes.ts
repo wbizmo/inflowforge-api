@@ -60,6 +60,26 @@ const createApiKeyBodySchema = {
   },
 };
 
+type WorkflowMetrics = {
+  totalExecutions: number;
+  successfulExecutions: number;
+  failedExecutions: number;
+  pendingExecutions: number;
+  runningExecutions: number;
+  lastExecutionAt: Date | null;
+};
+
+function emptyWorkflowMetrics(): WorkflowMetrics {
+  return {
+    totalExecutions: 0,
+    successfulExecutions: 0,
+    failedExecutions: 0,
+    pendingExecutions: 0,
+    runningExecutions: 0,
+    lastExecutionAt: null,
+  };
+}
+
 export async function adminRoutes(app: FastifyInstance) {
   app.addHook("preHandler", adminAuth);
 
@@ -286,54 +306,49 @@ export async function adminRoutes(app: FastifyInstance) {
       },
     },
     async () => {
-      const workflows = await prisma.workflow.findMany({
-        orderBy: { createdAt: "desc" },
-        include: {
-          workspace: {
-            select: { id: true, name: true, slug: true },
-          },
-          executions: {
-            select: {
-              id: true,
-              status: true,
-              createdAt: true,
-              finishedAt: true,
+      const [workflows, executionGroups] = await Promise.all([
+        prisma.workflow.findMany({
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            workspace: {
+              select: { id: true, name: true, slug: true },
             },
-            orderBy: { createdAt: "desc" },
           },
-        },
-      });
+        }),
+        prisma.workflowExecution.groupBy({
+          by: ["workflowId", "status"],
+          _count: { _all: true },
+          _max: { createdAt: true },
+        }),
+      ]);
 
-      return workflows.map((workflow) => {
-        const totalExecutions = workflow.executions.length;
-        const successfulExecutions = workflow.executions.filter(
-          (execution) => execution.status === "SUCCESS"
-        ).length;
-        const failedExecutions = workflow.executions.filter(
-          (execution) => execution.status === "FAILED"
-        ).length;
-        const pendingExecutions = workflow.executions.filter(
-          (execution) => execution.status === "PENDING"
-        ).length;
-        const runningExecutions = workflow.executions.filter(
-          (execution) => execution.status === "RUNNING"
-        ).length;
+      const metrics = new Map<string, WorkflowMetrics>();
+      for (const group of executionGroups) {
+        const current = metrics.get(group.workflowId) ?? emptyWorkflowMetrics();
+        const count = group._count._all;
+        current.totalExecutions += count;
 
-        return {
-          id: workflow.id,
-          name: workflow.name,
-          status: workflow.status,
-          workspace: workflow.workspace,
-          totalExecutions,
-          successfulExecutions,
-          failedExecutions,
-          pendingExecutions,
-          runningExecutions,
-          lastExecutionAt: workflow.executions[0]?.createdAt ?? null,
-          createdAt: workflow.createdAt,
-          updatedAt: workflow.updatedAt,
-        };
-      });
+        if (group.status === "SUCCESS") current.successfulExecutions += count;
+        if (group.status === "FAILED") current.failedExecutions += count;
+        if (group.status === "PENDING") current.pendingExecutions += count;
+        if (group.status === "RUNNING") current.runningExecutions += count;
+
+        const latest = group._max.createdAt;
+        if (latest && (!current.lastExecutionAt || latest > current.lastExecutionAt)) {
+          current.lastExecutionAt = latest;
+        }
+        metrics.set(group.workflowId, current);
+      }
+
+      return workflows.map((workflow) => ({
+        ...workflow,
+        ...(metrics.get(workflow.id) ?? emptyWorkflowMetrics()),
+      }));
     }
   );
 
