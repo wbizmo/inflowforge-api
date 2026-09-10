@@ -9,6 +9,18 @@ type ExecuteActionsInput = {
   input: Record<string, unknown>;
 };
 
+const TELEGRAM_TIMEOUT_MS = 10_000;
+let resendClient: Resend | undefined;
+let resendClientKey: string | undefined;
+
+function getResendClient(apiKey: string) {
+  if (!resendClient || resendClientKey !== apiKey) {
+    resendClient = new Resend(apiKey);
+    resendClientKey = apiKey;
+  }
+  return resendClient;
+}
+
 async function executeEmailAction(action: Action, input: Record<string, unknown>) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
@@ -31,9 +43,7 @@ async function executeEmailAction(action: Action, input: Record<string, unknown>
     };
   }
 
-  const resend = new Resend(apiKey);
-
-  const result = await resend.emails.send({
+  const result = await getResendClient(apiKey).emails.send({
     from,
     to: String(to),
     subject: String(subject || "inFlowForge Notification"),
@@ -80,6 +90,7 @@ async function executeTelegramAction(
         chat_id: chatId,
         text: String(message || "inFlowForge notification"),
       }),
+      signal: AbortSignal.timeout(TELEGRAM_TIMEOUT_MS),
     }
   );
 
