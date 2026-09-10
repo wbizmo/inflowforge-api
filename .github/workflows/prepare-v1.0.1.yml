@@ -18,8 +18,7 @@ jobs:
         with:
           node-version: 22
       - run: npm version 1.0.1 --no-git-tag-version
-      - name: Update OpenAPI version
-        run: node -e "const fs=require('fs'); const p='src/app.ts'; const s=fs.readFileSync(p,'utf8'); if(!s.includes('version: \"1.0.0\"')) process.exit(2); fs.writeFileSync(p,s.replace('version: \"1.0.0\"','version: \"1.0.1\"'));"
+      - run: node .github/scripts/bump-v1.0.1.mjs
       - name: Commit release metadata
         run: |
           git config user.name "github-actions[bot]"
